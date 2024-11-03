@@ -3,6 +3,8 @@ from flask_swagger_ui import get_swaggerui_blueprint
 from langchain_community.document_loaders import DirectoryLoader
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import pipeline
 import faiss
 import torch
 import os
@@ -23,6 +25,9 @@ app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 #Load the embendings model of Sentence Transformers
 embedding_model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+
+# Load a summary pipeline if the context is very long
+summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
 #Initializes the FAISS index for storing embeddings
 dimension = 384
@@ -105,8 +110,10 @@ def chat():
         print(f"Contexto encontrado: {api.texts[document_index]}") #print to test
 
         context = api.texts[document_index]
+        filtered_context = find_relevant_paragraphs(context, question_embedding)
+
         # GPT-2 to generate an answer based on the context and the question.
-        input_text = f"Context: {context}\nQuestion: {question}\nAnswer:"
+        input_text = f"Context: {filtered_context}\nQuestion: {question}\nAnswer:"
         input_ids = tokenizer.encode(input_text, return_tensors='pt')
 
         #Set the attention mask
@@ -120,8 +127,42 @@ def chat():
     else:
         response_text = "Lo siento, no encontré una respuesta relevante a tu pregunta."
 
-
     return jsonify({"response": response_text})
+
+
+def find_relevant_paragraphs(context, question_embedding, max_length=1024):
+    paragraphs = context.split("\n\n")
+    relevant_paragraphs = []
+    
+    # Generate embeddings for each paragraph
+    paragraph_embeddings = embedding_model.encode(paragraphs, convert_to_tensor=True).cpu()
+
+    # Calculate the similitari of each paragraph
+    for i, paragraph in enumerate(paragraphs):
+        paragraph_embedding = paragraph_embeddings[i].unsqueeze(0)
+
+        similarity = cosine_similarity(question_embedding.numpy(), paragraph_embedding.numpy())
+
+        if similarity.item() > 0.5:
+            relevant_paragraphs.append(paragraph)
+
+    if relevant_paragraphs:
+        joined_context = "\n".join(relevant_paragraphs)
+    else:
+        joined_context = context
+
+    if len(joined_context) > max_length:
+
+        #Divide the text into smaller fragments
+        fragments = [joined_context[i:i + max_length] for i in range(0, len(joined_context), max_length)]
+        responses = []
+        for fragment in fragments:
+            summary = summarizer(fragment, max_length=150, min_length=30, do_sample=False)
+            responses.append(summary[0]['summary_text'])
+
+        joined_context = " ".join(responses)
+
+    return joined_context
 
 if __name__ == '__main__':
     app.run(debug=True)
