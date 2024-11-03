@@ -79,7 +79,49 @@ def upload_documents():
     except Exception as e:
         print(f"Error al cargar documentos: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.json
+    question = data.get('query')
 
+    if not question:
+        return jsonify({"error": "Invalid question provided"}), 400
+    
+    #generate embedding question
+    question_embedding = embedding_model.encode(question, convert_to_tensor=True).cpu()
+
+    #question embeddin 2D
+    question_embedding = question_embedding.reshape(1, -1)
+
+    #Search for embedding in the FAISS index
+    distances, indices = index.search(question_embedding.numpy(), k=1)
+
+    min_distance = distances[0][0]
+    document_index = indices[0][0]
+    print(f"Distancia mínima: {min_distance}") #print to test
+
+    if document_index != -1 and min_distance < 200:
+        print(f"Contexto encontrado: {api.texts[document_index]}") #print to test
+
+        context = api.texts[document_index]
+        # GPT-2 to generate an answer based on the context and the question.
+        input_text = f"Context: {context}\nQuestion: {question}\nAnswer:"
+        input_ids = tokenizer.encode(input_text, return_tensors='pt')
+
+        #Set the attention mask
+        attention_mask = (input_ids != tokenizer.pad_token_id).long()
+        output = gpt_model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=100, num_return_sequences=1)
+        #Convert output to token_ids
+        token_ids = output.sequences[0].tolist()
+
+        #Decode using token_ids
+        response_text = tokenizer.decode(token_ids, skip_special_tokens=True)
+    else:
+        response_text = "Lo siento, no encontré una respuesta relevante a tu pregunta."
+
+
+    return jsonify({"response": response_text})
 
 if __name__ == '__main__':
     app.run(debug=True)
