@@ -113,12 +113,20 @@ def chat():
         filtered_context = find_relevant_paragraphs(context, question_embedding)
 
         # GPT-2 to generate an answer based on the context and the question.
-        input_text = f"Context: {filtered_context}\nQuestion: {question}\nAnswer:"
+        input_text = f"Contexto: {filtered_context}\n\nUsa el contexto anterior para responder a la siguiente pregunta: {question}\nRespuesta:"
+
         input_ids = tokenizer.encode(input_text, return_tensors='pt')
 
         #Set the attention mask
         attention_mask = (input_ids != tokenizer.pad_token_id).long()
-        output = gpt_model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=100, num_return_sequences=1)
+        output = gpt_model.generate(
+            input_ids,
+            attention_mask=attention_mask,
+            max_new_tokens=100,
+            no_repeat_ngram_size=2,
+            temperature=0.5
+        )
+        
         #Convert output to token_ids
         token_ids = output.sequences[0].tolist()
 
