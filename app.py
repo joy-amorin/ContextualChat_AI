@@ -34,7 +34,7 @@ dimension = 384
 index = faiss.IndexFlatL2(dimension)
 
 #Load DistilGPT-2 model and tokenizer
-gpt_model_name = 'distilgpt2'
+gpt_model_name = './results'
 tokenizer = AutoTokenizer.from_pretrained(gpt_model_name)
 tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token})
 gpt_model = AutoModelForCausalLM.from_pretrained(gpt_model_name, output_hidden_states=True,  return_dict_in_generate=True)
@@ -124,7 +124,8 @@ def chat():
             attention_mask=attention_mask,
             max_new_tokens=100,
             no_repeat_ngram_size=2,
-            temperature=0.5
+            temperature=0.3,
+            do_sample=True
         )
         
         #Convert output to token_ids
