@@ -87,12 +87,12 @@ The API will respond with a generated answer based on the relevant context.
 
 `ContextualChat_AI/
 │
-├── app.py                        # Main code for the chat API
-├── fine_tuning_dataset.txt        # Text dataset for training
-├── documents/                     # Directory to upload documents
-├── results/                       # Directory to store the fine-tuned model
-├── tokenizer.py                   # Code for tokenizing the dataset
-└── train.py                       # Code for training the model with the dataset` 
+├── app.py
+├── fine_tuning_dataset.txt
+├── documents/          
+├── results/                
+├── tokenizer.py               
+└── train.py                  
 
 ### Next Steps
 
