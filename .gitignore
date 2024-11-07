@@ -1,3 +1,6 @@
 *.pyc
 __pycache__/
+venv/
 test_model.py
+documents/
+fine_tuning_dataset.txt
